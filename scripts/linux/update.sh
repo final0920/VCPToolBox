@@ -8,6 +8,9 @@ REMOTE_NAME="${REMOTE_NAME:-origin}"
 FORCE_INSTALL="${FORCE_INSTALL:-0}"
 ALLOW_DIRTY="${ALLOW_DIRTY:-0}"
 
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/common/config_crypto.sh"
+
 log() {
   printf '[update] %s\n' "$*"
 }
@@ -94,10 +97,9 @@ require_cmd git
 require_cmd node
 require_cmd npm
 require_cmd python3
+require_cmd openssl
 
-if [[ ! -f "$ROOT_DIR/config.env" ]]; then
-  fail "config.env not found. Run scripts/linux/install.sh first."
-fi
+decrypt_config_env
 
 if [[ "$ALLOW_DIRTY" != "1" ]] && [[ -n "$(git status --porcelain)" ]]; then
   fail "Working tree is not clean. Commit/stash local changes first, or re-run with ALLOW_DIRTY=1."

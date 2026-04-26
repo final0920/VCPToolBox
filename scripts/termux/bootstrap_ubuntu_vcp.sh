@@ -79,7 +79,7 @@ REPO_BRANCH="${REPO_BRANCH:-main}"
 apt-get update
 apt-get install -y \
   ca-certificates curl git bash build-essential pkg-config \
-  python3 python3-venv python3-pip ffmpeg
+  python3 python3-venv python3-pip ffmpeg openssl
 
 if ! command -v node >/dev/null 2>&1 || ! node -v | grep -Eq '^v2[0-9]\.'; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -97,7 +97,7 @@ fi
 
 cd "$APP_DIR"
 
-if [[ ! -f config.env ]]; then
+if [[ ! -f config.env && ! -f config.env.enc ]]; then
   cp config.env.example config.env
 fi
 
@@ -134,10 +134,15 @@ Deployment completed. Recommended next steps:
 1. Edit config:
    cd "$UBUNTU_APP_DIR" && nano config.env
 
-2. Restart services:
+2. If you use encrypted config, export the secret first:
+   export CONFIG_ENV_PASSPHRASE='your-passphrase'
+   # or
+   export CONFIG_ENV_KEY_FILE="$HOME/.vcp_config_key"
+
+3. Restart services:
    cd "$UBUNTU_APP_DIR" && ./node_modules/.bin/pm2 restart all
 
-3. Check status:
+4. Check status:
    cd "$UBUNTU_APP_DIR" && ./node_modules/.bin/pm2 status
 
 Default URLs:

@@ -5,6 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VENV_DIR="$ROOT_DIR/.venv"
 TMP_REQUIREMENTS="$ROOT_DIR/.requirements.linux.tmp"
 
+# shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/common/config_crypto.sh"
+
 log() {
   printf '[install] %s\n' "$*"
 }
@@ -23,15 +26,6 @@ node_major_version() {
   raw_version="$(node -v)"
   raw_version="${raw_version#v}"
   printf '%s' "${raw_version%%.*}"
-}
-
-prepare_config() {
-  if [[ -f "$ROOT_DIR/config.env" ]]; then
-    return
-  fi
-
-  cp "$ROOT_DIR/config.env.example" "$ROOT_DIR/config.env"
-  log "Created config.env from config.env.example. Edit it before exposing the service to the public network."
 }
 
 prepare_venv() {
@@ -111,12 +105,13 @@ require_cmd git
 require_cmd node
 require_cmd npm
 require_cmd python3
+require_cmd openssl
 
 if (( "$(node_major_version)" < 20 )); then
   fail "Node.js 20+ is required. Current version: $(node -v)"
 fi
 
-prepare_config
+decrypt_config_env
 prepare_venv
 
 log "Installing root Node dependencies..."

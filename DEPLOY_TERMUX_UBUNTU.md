@@ -104,6 +104,83 @@ proot-distro login ubuntu
 - 自动复制 `config.env.example`
 - 调用项目自己的 Linux 安装脚本完成部署
 
+## 加密配置文件的用法
+
+如果你现在准备把本地 `config.env` 加密后推到远程仓库，可以这样做：
+
+### 本地生成密文
+
+```bash
+export CONFIG_ENV_PASSPHRASE='你自己的强口令'
+bash scripts/common/encrypt_config_env.sh
+```
+
+生成后会得到：
+
+- `config.env.enc`
+
+你后续提交这个文件即可，明文 `config.env` 不需要提交。
+
+### 手机上提供解密口令
+
+在 Ubuntu 里推荐这样做：
+
+```bash
+printf '%s' '你自己的强口令' > ~/.vcp_config_key
+chmod 600 ~/.vcp_config_key
+export CONFIG_ENV_KEY_FILE="$HOME/.vcp_config_key"
+```
+
+然后再执行部署或更新：
+
+```bash
+bash scripts/linux/install.sh
+```
+
+或者：
+
+```bash
+bash scripts/linux/update.sh
+```
+
+如果你后面要手动执行：
+
+```bash
+./node_modules/.bin/pm2 restart all
+```
+
+也要先确保当前 shell 里已经有：
+
+- `CONFIG_ENV_PASSPHRASE`
+
+或者：
+
+- `CONFIG_ENV_KEY_FILE`
+
+### 自动解密时机
+
+现在项目已经支持以下自动解密场景：
+
+- 首次安装前自动解密
+- 每次 `update.sh` 更新前自动解密
+- 每次 PM2 启动或重启前自动解密
+
+也就是说，只要手机 Ubuntu 里提供了：
+
+- `CONFIG_ENV_PASSPHRASE`
+
+或者：
+
+- `CONFIG_ENV_KEY_FILE`
+
+那么以后：
+
+- 部署
+- 更新
+- `pm2 restart all`
+
+都会自动先解密 `config.env.enc`，再启动服务。
+
 ## 最简部署步骤
 
 ### 方案 A：你已经把仓库放到手机上

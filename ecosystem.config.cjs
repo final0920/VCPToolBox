@@ -9,6 +9,9 @@ const sharedEnv = {
   NODE_ENV: process.env.NODE_ENV || 'production',
   VIRTUAL_ENV: venvDir,
   PATH: `${venvBin}:${processPath}`,
+  CONFIG_ENV_PASSPHRASE: process.env.CONFIG_ENV_PASSPHRASE,
+  CONFIG_ENV_KEY_FILE: process.env.CONFIG_ENV_KEY_FILE,
+  CONFIG_ENV_ALGO: process.env.CONFIG_ENV_ALGO,
 };
 
 module.exports = {
@@ -16,7 +19,10 @@ module.exports = {
     {
       name: 'vcp-main',
       cwd: rootDir,
-      script: 'server.js',
+      script: 'scripts/common/start_with_decrypted_config.sh',
+      args: 'server.js',
+      interpreter: '/usr/bin/env',
+      interpreter_args: 'bash',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
@@ -28,7 +34,10 @@ module.exports = {
     {
       name: 'vcp-admin',
       cwd: rootDir,
-      script: 'adminServer.js',
+      script: 'scripts/common/start_with_decrypted_config.sh',
+      args: 'adminServer.js',
+      interpreter: '/usr/bin/env',
+      interpreter_args: 'bash',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,

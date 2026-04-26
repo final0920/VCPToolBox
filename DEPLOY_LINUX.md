@@ -68,6 +68,88 @@ cp config.env.example config.env
 - `AdminUsername`
 - `AdminPassword`
 
+## 加密配置文件推荐方案
+
+如果你希望把配置文件加密后再提交到远程仓库，推荐使用仓库现在支持的模式：
+
+- 明文文件：`config.env`
+- 密文文件：`config.env.enc`
+
+建议流程：
+
+1. 在本地编辑好 `config.env`
+2. 设置解密口令
+3. 生成 `config.env.enc`
+4. 提交 `config.env.enc`
+5. 不提交明文 `config.env`
+
+本地加密命令：
+
+```bash
+export CONFIG_ENV_PASSPHRASE='你自己的强口令'
+bash scripts/common/encrypt_config_env.sh
+```
+
+如果你不想直接用环境变量，也可以把口令放到文件里：
+
+```bash
+printf '%s' '你自己的强口令' > ~/.vcp_config_key
+chmod 600 ~/.vcp_config_key
+export CONFIG_ENV_KEY_FILE="$HOME/.vcp_config_key"
+bash scripts/common/encrypt_config_env.sh
+```
+
+生成后会得到：
+
+- `config.env.enc`：可以提交到 Git
+- `config.env`：继续保留在本地使用，但不要提交
+
+## 自动解密机制
+
+当前仓库已经接入自动解密：
+
+- 首次安装前会先尝试解密
+- 每次更新脚本执行前会先尝试解密
+- 每次 PM2 启动或重启 `server.js` / `adminServer.js` 前也会先尝试解密
+
+也就是说，只要机器上有以下任意一种解密信息：
+
+- `CONFIG_ENV_PASSPHRASE`
+- `CONFIG_ENV_KEY_FILE`
+
+那么：
+
+- `bash scripts/linux/install.sh`
+- `bash scripts/linux/update.sh`
+- `pm2 restart all`
+
+都会自动把 `config.env.enc` 解密成 `config.env`，然后再启动服务。
+
+## 服务器上如何提供解密口令
+
+最简单方式：
+
+```bash
+export CONFIG_ENV_PASSPHRASE='你自己的强口令'
+```
+
+更推荐方式是密钥文件：
+
+```bash
+printf '%s' '你自己的强口令' > ~/.vcp_config_key
+chmod 600 ~/.vcp_config_key
+export CONFIG_ENV_KEY_FILE="$HOME/.vcp_config_key"
+```
+
+如果你希望 PM2 重启后仍然继承这个变量，请在启动前先导出变量，再运行安装脚本：
+
+```bash
+export CONFIG_ENV_KEY_FILE="$HOME/.vcp_config_key"
+bash scripts/linux/install.sh
+```
+
+因为安装脚本会执行 `pm2 startOrReload ... --update-env`，所以当前环境变量会被写入 PM2 进程环境。
+
 ### 3. 执行安装脚本
 
 ```bash
