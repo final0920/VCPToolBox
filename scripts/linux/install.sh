@@ -4,6 +4,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VENV_DIR="$ROOT_DIR/.venv"
 TMP_REQUIREMENTS="$ROOT_DIR/.requirements.linux.tmp"
+export HUSKY=0
 
 # shellcheck disable=SC1091
 source "$ROOT_DIR/scripts/common/config_crypto.sh"

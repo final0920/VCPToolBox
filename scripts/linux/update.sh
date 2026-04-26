@@ -7,6 +7,7 @@ TMP_REQUIREMENTS="$ROOT_DIR/.requirements.linux.tmp"
 REMOTE_NAME="${REMOTE_NAME:-origin}"
 FORCE_INSTALL="${FORCE_INSTALL:-0}"
 ALLOW_DIRTY="${ALLOW_DIRTY:-0}"
+export HUSKY=0
 
 # shellcheck disable=SC1091
 source "$ROOT_DIR/scripts/common/config_crypto.sh"
