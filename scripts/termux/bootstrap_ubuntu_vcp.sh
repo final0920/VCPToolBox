@@ -1,11 +1,11 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/usr/bin/env bash
 set -Eeuo pipefail
 
 DISTRO_NAME="${DISTRO_NAME:-ubuntu}"
 REPO_URL="${REPO_URL:-https://github.com/lioensky/VCPToolBox.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 APP_DIR="${APP_DIR:-$HOME/VCPToolBox}"
-UBUNTU_APP_DIR="${UBUNTU_APP_DIR:-/root/VCPToolBox}"
+UBUNTU_APP_DIR="${UBUNTU_APP_DIR:-$HOME/VCPToolBox}"
 
 log() {
   printf '[termux-bootstrap] %s\n' "$*"
@@ -17,55 +17,62 @@ fail() {
 }
 
 require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || fail "缺少命令：$1"
+  command -v "$1" >/dev/null 2>&1 || fail "Missing command: $1"
+}
+
+is_termux_host() {
+  [[ -n "${TERMUX_VERSION:-}" ]] && command -v pkg >/dev/null 2>&1
+}
+
+is_ubuntu_like() {
+  [[ -f /etc/os-release ]] && grep -Eqi '^(ID|ID_LIKE)=(.*ubuntu|.*debian)' /etc/os-release
 }
 
 install_termux_packages() {
-  log "更新 Termux 基础包..."
+  log "Updating Termux packages..."
   pkg update -y
   pkg install -y git curl proot-distro
 }
 
-ensure_repo() {
+ensure_termux_repo() {
   if [[ -d "$APP_DIR/.git" ]]; then
-    log "检测到 Termux 本地仓库：$APP_DIR"
+    log "Found local Termux repo: $APP_DIR"
     return
   fi
 
-  if [[ -d "$APP_DIR" && ! -d "$APP_DIR/.git" ]]; then
-    fail "$APP_DIR 已存在但不是 Git 仓库，请先处理该目录。"
+  if [[ -e "$APP_DIR" ]]; then
+    fail "$APP_DIR already exists but is not a Git repo."
   fi
 
-  log "克隆仓库到 Termux：$APP_DIR"
+  log "Cloning repo into Termux: $APP_DIR"
   git clone --branch "$REPO_BRANCH" "$REPO_URL" "$APP_DIR"
 }
 
-install_ubuntu() {
+install_ubuntu_rootfs() {
   if proot-distro login "$DISTRO_NAME" -- true >/dev/null 2>&1; then
-    log "Ubuntu 已安装，跳过 rootfs 安装。"
+    log "Ubuntu rootfs already installed."
     return
   fi
 
-  log "安装 Ubuntu rootfs..."
+  log "Installing Ubuntu rootfs..."
   proot-distro install "$DISTRO_NAME"
 }
 
 run_in_ubuntu() {
   proot-distro login "$DISTRO_NAME" --shared-tmp -- \
     env \
-    UBUNTU_APP_DIR="$UBUNTU_APP_DIR" \
     REPO_URL="$REPO_URL" \
     REPO_BRANCH="$REPO_BRANCH" \
+    UBUNTU_APP_DIR="$UBUNTU_APP_DIR" \
     bash -s
 }
 
-prepare_ubuntu() {
-  log "在 Ubuntu 中安装基础依赖并部署项目..."
-  run_in_ubuntu <<'EOF'
+ubuntu_install_block() {
+  cat <<'EOF'
 set -Eeuo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
-APP_DIR="${UBUNTU_APP_DIR:-/root/VCPToolBox}"
+APP_DIR="${UBUNTU_APP_DIR:-$HOME/VCPToolBox}"
 REPO_URL="${REPO_URL:-https://github.com/lioensky/VCPToolBox.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 
@@ -98,34 +105,57 @@ bash scripts/linux/install.sh
 EOF
 }
 
+prepare_from_termux() {
+  require_cmd pkg
+  install_termux_packages
+  ensure_termux_repo
+  install_ubuntu_rootfs
+  log "Deploying inside Ubuntu..."
+  ubuntu_install_block | run_in_ubuntu
+}
+
+prepare_from_ubuntu() {
+  require_cmd apt-get
+  if [[ ! -d .git && ! -f package.json ]]; then
+    fail "Please run this script inside the VCPToolBox repository directory in Ubuntu."
+  fi
+
+  export UBUNTU_APP_DIR
+  UBUNTU_APP_DIR="$(pwd)"
+  log "Detected Ubuntu environment. Using apt-based deployment directly..."
+  ubuntu_install_block | bash
+}
+
 show_next_steps() {
   cat <<EOF
 
-部署完成后请继续执行以下操作：
+Deployment completed. Recommended next steps:
 
-1. 进入 Ubuntu 修改配置
-   proot-distro login "$DISTRO_NAME" -- bash -lc 'cd "$UBUNTU_APP_DIR" && nano config.env'
+1. Edit config:
+   cd "$UBUNTU_APP_DIR" && nano config.env
 
-2. 修改完成后重启服务
-   proot-distro login "$DISTRO_NAME" -- bash -lc 'cd "$UBUNTU_APP_DIR" && ./node_modules/.bin/pm2 restart all'
+2. Restart services:
+   cd "$UBUNTU_APP_DIR" && ./node_modules/.bin/pm2 restart all
 
-3. 查看状态
-   proot-distro login "$DISTRO_NAME" -- bash -lc 'cd "$UBUNTU_APP_DIR" && ./node_modules/.bin/pm2 status'
+3. Check status:
+   cd "$UBUNTU_APP_DIR" && ./node_modules/.bin/pm2 status
 
-默认访问地址：
-- 主服务: http://127.0.0.1:6005
-- 管理面板: http://127.0.0.1:6006/AdminPanel/
+Default URLs:
+- Main service:  http://127.0.0.1:6005
+- Admin panel:   http://127.0.0.1:6006/AdminPanel/
 
 EOF
 }
 
 main() {
-  require_cmd pkg
-  install_termux_packages
-  ensure_repo
-  install_ubuntu
-  export REPO_URL REPO_BRANCH UBUNTU_APP_DIR
-  prepare_ubuntu
+  if is_termux_host && [[ "$(id -u)" != "0" ]]; then
+    prepare_from_termux
+  elif is_ubuntu_like; then
+    prepare_from_ubuntu
+  else
+    fail "Unsupported environment. Run this in Termux host or inside Ubuntu/Debian."
+  fi
+
   show_next_steps
 }
 
